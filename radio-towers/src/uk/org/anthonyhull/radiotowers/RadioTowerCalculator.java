@@ -129,6 +129,12 @@ public class RadioTowerCalculator {
 			this.receiversWithInitialSignal = receiversWithInitialSignal;
 			this.powerIncreases = powerIncreases;
 		}
+
+		@Override
+		public String toString() {
+			return "Solution [totalReceivers=" + totalReceivers + ", receiversWithInitialSignal="
+					+ receiversWithInitialSignal + ", powerIncreases=" + powerIncreases + "]";
+		}
 	}
 
 	/**
@@ -144,6 +150,11 @@ public class RadioTowerCalculator {
 		public PowerIncrease(int transmitterId, int newPower) {
 			this.transmitterId = transmitterId;
 			this.newPower = newPower;
+		}
+
+		@Override
+		public String toString() {
+			return "PowerIncrease [transmitterId=" + transmitterId + ", newPower=" + newPower + "]";
 		}
 	}
 
@@ -224,18 +235,20 @@ public class RadioTowerCalculator {
 			throw new IllegalArgumentException("No receiving towers");
 		}
 		if (tower[0] != 1) {
-			throw new IllegalArgumentException("First receiving tower must have id of 1");
-		}
-		if (!validateCoordinates(tower[1], tower[2])) {
-			throw new IllegalArgumentException("Receiving tower " + tower[0] + " has invalid coordinates");
+			throw new IllegalArgumentException("First receiving tower " + tower[0] + " must have id of 1");
 		}
 		
 		// Process this and remaining receivers
 		while (tower != null) {
-			if (tower[0] == last_id + 1)
-				if (tower.length != 3) {
-					throw new IllegalArgumentException("Receiving tower must have 3 parameters");
-				}
+			if (tower[0] != last_id + 1) {
+				throw new IllegalArgumentException("Receiving tower id " + tower[0] + " is out of sequence");
+			}
+			if (tower.length != 3) {
+				throw new IllegalArgumentException("Receiving tower must have 3 parameters");
+			}
+			if (!validateCoordinates(tower[1], tower[2])) {
+				throw new IllegalArgumentException("Receiving tower " + tower[0] + " has invalid coordinates");
+			}
 			receivingTowers.add(new ReceivingTower(tower[0], tower[1], tower[2]));
 			last_id++;
 			tower = readAndSplit(br);

@@ -9,8 +9,26 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Calculate the transmitter power required so that all receiving towers on an
+ * island can receive a radio signal.
+ * 
+ * For a fuller problem statement, see:<br>
+ * @URL https://gist.github.com/NominetRD/1e0a41021e6f437df33ecfb9cfdebc97
+ * 
+ * @author Anthony
+ *
+ */
 public class RadioTowerCalculator {
 
+	/**
+	 * Abstract base class for transmitting & receiving towers
+	 * 
+	 * Contains tower id and its x & y coordinates on the island
+	 * 
+	 * @author Anthony
+	 *
+	 */
 	private abstract class Tower {
 		public final int id;
 		public final int x;
@@ -23,6 +41,60 @@ public class RadioTowerCalculator {
 		}
 	}
 
+	/**
+	 * Receiving tower, including its distances from the various transmitting
+	 * towers.
+	 * 
+	 * @author Anthony
+	 *
+	 */
+	private class ReceivingTower extends Tower {
+
+		// Distances of this tower from each transmitter
+		public final List<DistanceFromTower> distancesFromTransmitters;
+
+		public ReceivingTower(int id, int x, int y) {
+			super(id, x, y);
+			distancesFromTransmitters = new ArrayList<>();
+		}
+
+		@Override
+		public String toString() {
+			return "ReceivingTower [id=" + id + ", x=" + x + ", y=" + y + "]";
+		}
+	}
+
+	/**
+	 * Transmitting tower, including its initial and current power.
+	 * 
+	 * @author Anthony
+	 *
+	 */
+	private class TransmittingTower extends Tower {
+		@Override
+		public String toString() {
+			return "TransmittingTower [id=" + id + ", x=" + x + ", y=" + y + ", power=" + currentPower + "]";
+		}
+
+		public final int initialPower;
+		public int currentPower;
+
+		public TransmittingTower(int id, int x, int y, int power) {
+			super(id, x, y);
+			this.initialPower = power;
+			this.currentPower = power;
+		}
+	}
+
+	/**
+	 * Distance of a tower from another tower.
+	 * 
+	 * This is used to hold information on the distance of a receiving tower
+	 * from the various transmitting towers.
+	 * 
+	 * @author Anthony
+	 *
+	 */
 	private class DistanceFromTower {
 		final int towerId;
 		final int distance;
@@ -38,71 +110,79 @@ public class RadioTowerCalculator {
 		}
 	}
 
-	private class ReceivingTower extends Tower {
-
-		// Map of transmitter id to distance of this receiver from the
-		// transmitter
-		public final List<DistanceFromTower> distances;
-
-		public ReceivingTower(int id, int x, int y) {
-			super(id, x, y);
-			distances = new ArrayList<>();
-		}
-
-		@Override
-		public String toString() {
-			return "ReceivingTower [id=" + id + ", x=" + x + ", y=" + y + "]";
-		}
-	}
-
-	private class TransmittingTower extends Tower {
-		@Override
-		public String toString() {
-			return "TransmittingTower [id=" + id + ", x=" + x + ", y=" + y + ", power=" + power + "]";
-		}
-
-		public final int initialPower;
-		public int power;
-
-		public TransmittingTower(int id, int x, int y, int power) {
-			super(id, x, y);
-			this.initialPower = power;
-			this.power = power;
-		}
-	}
-
+	/**
+	 * Report of the solution to the problem, including the information required
+	 * for output: receivers initially within range of a transmitter, total
+	 * number of receivers and the new power of any transmitters whose power has
+	 * had to be increased.
+	 * 
+	 * @author Anthony
+	 *
+	 */
 	public class Solution {
 		public final int totalReceivers;
 		public final int receiversWithInitialSignal;
-		public final Map<Integer, Integer> powerIncreases;
+		public final List<PowerIncrease> powerIncreases;
 
-		public Solution(int totalReceivers, int receiversWithInitialSignal, Map<Integer, Integer> powerIncreases) {
+		public Solution(int totalReceivers, int receiversWithInitialSignal, List<PowerIncrease> powerIncreases) {
 			this.totalReceivers = totalReceivers;
 			this.receiversWithInitialSignal = receiversWithInitialSignal;
 			this.powerIncreases = powerIncreases;
 		}
 	}
 
-	// Dimensions of the island (x, y)
+	/**
+	 * New power of a single transmitter
+	 * 
+	 * @author Anthony
+	 *
+	 */
+	public class PowerIncrease {
+		public final int transmitterId;
+		public final int newPower;
+
+		public PowerIncrease(int transmitterId, int newPower) {
+			this.transmitterId = transmitterId;
+			this.newPower = newPower;
+		}
+	}
+
+	/**
+	 * Dimensions of the island (x, y)
+	 */
 	private int[] dimensions;
 
-	// Transmitting towers, as read from input file
+	/**
+	 * Transmitting towers, as read from input file
+	 */
 	private List<TransmittingTower> transmittingTowers = new ArrayList<>();
 
-	// Receiving towers: initially as read from file, but receivers are removed
-	// from
-	// this list as they are able to receive a signal.
+	/**
+	 * Receiving towers: initially as read from file, but receivers are removed
+	 * from this list as they are able to receive a signal.
+	 */
 	private List<ReceivingTower> receivingTowers = new ArrayList<>();
 
-	// Total number of receivers
+	/**
+	 * Total number of receivers
+	 */
 	private int totalReceivers;
 
-	// Number of receivers able to receive a signal when all transmitters are at
-	// their initial power.
+	/**
+	 * Number of receivers able to receive a signal when all transmitters are at
+	 * their initial power.
+	 */
 	private int initialReceiversInRange;
 
 	// --------------------------------------------------------------------------
 
+	/**
+	 * Initialise calculator from the given input source and validate the input
+	 * 
+	 * @param reader
+	 *            input source
+	 * @throws IOException
+	 */
 	public void initialise(final Reader reader) throws IOException {
 		final BufferedReader br = new BufferedReader(reader);
 
@@ -114,6 +194,8 @@ public class RadioTowerCalculator {
 
 		// Read transmitting towers
 		int last_id = 0;
+		
+		// Read the first transmitter
 		int[] tower = readAndSplit(br);
 		if (tower == null) {
 			throw new IllegalArgumentException("No transmitting towers");
@@ -121,16 +203,22 @@ public class RadioTowerCalculator {
 		if (tower[0] != 1) {
 			throw new IllegalArgumentException("First transmitting tower must have id of 1");
 		}
+		
+		// Process first and remaining transmitters.
+		// An id out of sequence is assumed to signal the first receiving tower.
 		while (tower != null && tower[0] == last_id + 1) {
 			if (tower.length != 4) {
-				throw new IllegalArgumentException("Transmitting tower must have 4 parameters");
+				throw new IllegalArgumentException("Transmitting tower " + tower[0] + " must have 4 parameters");
+			}
+			if (!validateCoordinates(tower[1], tower[2])) {
+				throw new IllegalArgumentException("Transmitting tower " + tower[0] + " has invalid coordinates");
 			}
 			transmittingTowers.add(new TransmittingTower(tower[0], tower[1], tower[2], tower[3]));
 			last_id++;
 			tower = readAndSplit(br);
 		}
 
-		// id is no longer incrementing - assume we are reading receiving towers
+		// id is no longer incrementing - assume we have read the first receiving tower
 		last_id = 0;
 		if (tower == null) {
 			throw new IllegalArgumentException("No receiving towers");
@@ -138,6 +226,11 @@ public class RadioTowerCalculator {
 		if (tower[0] != 1) {
 			throw new IllegalArgumentException("First receiving tower must have id of 1");
 		}
+		if (!validateCoordinates(tower[1], tower[2])) {
+			throw new IllegalArgumentException("Receiving tower " + tower[0] + " has invalid coordinates");
+		}
+		
+		// Process this and remaining receivers
 		while (tower != null) {
 			if (tower[0] == last_id + 1)
 				if (tower.length != 3) {
@@ -149,12 +242,20 @@ public class RadioTowerCalculator {
 		}
 
 		totalReceivers = receivingTowers.size();
-		System.out.println(String.format("Initialisation complete: %d transmitting towers, %d receiving towers",
-				transmittingTowers.size(), totalReceivers));
+//		System.out.println(String.format("Initialisation complete: %d transmitting towers, %d receiving towers",
+//				transmittingTowers.size(), totalReceivers));
 	}
 
 	/**
-	 * Read a line from the input
+	 * Check whether the coordinates of a tower are valid<br>
+	 * i.e. non-negative and within the bounds of the island.
+	 */
+	private boolean validateCoordinates(int x, int y) {
+		return (x >= 0 && x < dimensions[0] && y >= 0 && y < dimensions[1]);
+	}
+
+	/**
+	 * Read and parse a line from the input
 	 * 
 	 * @param br
 	 *            Input source
@@ -177,30 +278,29 @@ public class RadioTowerCalculator {
 	}
 
 	/**
-	 * Calculate solution
+	 * Calculate solution and return to caller
 	 */
 	public Solution calculate() {
-		// For each receiver, calculate its distance from each transmitting
-		// tower.
-		// If a receiver is in range of a transmitter, remove it from the list,
-		// as we do not need to consider it any more.
 		initialReceiversInRange = 0;
 
+		// For each receiver, calculate its distance from each transmitter.
+		// If a receiver is already in range of a transmitter, remove it from
+		// the list, as we do not need to consider it any more.
 		final Iterator<ReceivingTower> receiverIterator = receivingTowers.iterator();
 		while (receiverIterator.hasNext()) {
 			final ReceivingTower receiver = receiverIterator.next();
 			boolean inRange = false;
 
-			// For each tower, add its distance to the list, unless already in
-			// range.
+			// For each transmitter, add its distance to the list, unless
+			// already in range.
 			for (final TransmittingTower transmitter : transmittingTowers) {
 				final int distance = calcDistance(transmitter, receiver);
-				if (distance <= transmitter.power) {
+				if (distance <= transmitter.currentPower) {
 					inRange = true;
 					initialReceiversInRange++;
 					break;
 				} else {
-					receiver.distances.add(new DistanceFromTower(transmitter.id, distance));
+					receiver.distancesFromTransmitters.add(new DistanceFromTower(transmitter.id, distance));
 				}
 			}
 
@@ -216,10 +316,10 @@ public class RadioTowerCalculator {
 		}
 		
 		// Find transmitters whose power has increased
-		final Map<Integer, Integer> increases = new HashMap<>();
+		final List<PowerIncrease> increases = new ArrayList<>();
 		for (final TransmittingTower transmitter : transmittingTowers) {
-			if (transmitter.power > transmitter.initialPower) {
-				increases.put(transmitter.id, transmitter.power);
+			if (transmitter.currentPower > transmitter.initialPower) {
+				increases.add(new PowerIncrease(transmitter.id, transmitter.currentPower));
 			}
 		}
 		
@@ -247,12 +347,16 @@ public class RadioTowerCalculator {
 
 		// Build up the above map
 		for (final ReceivingTower receiver : receivingTowers) {
-			for (final DistanceFromTower distanceFromTransmitter : receiver.distances) {
+			
+			// Iterate over the distances of this receiver from the various transmitters
+			for (final DistanceFromTower distanceFromTransmitter : receiver.distancesFromTransmitters) {
+				
+				// Calculate the increase in power required to bring this receiver into range of this transmitter.
 				final int increaseRequired = distanceFromTransmitter.distance
-						- transmittingTowers.get(distanceFromTransmitter.towerId - 1).power;
+						- transmittingTowers.get(distanceFromTransmitter.towerId - 1).currentPower;
 
 				if (smallestIncrease != null && increaseRequired > smallestIncrease) {
-					// We already have a smaller increase
+					// We have already found a smaller increase that will bring some receiver(s) into range.
 					continue;
 				}
 
@@ -270,12 +374,14 @@ public class RadioTowerCalculator {
 					increases.put(distanceFromTransmitter.towerId, receiversAffected);
 				}
 
-				// Add receiver id
+				// Add receiver id: increasing the power of transmitter <towerId> by <smallestIncrease>
+				// will bring <receiver> into range.
 				receiversAffected.add(receiver);
 			}
 		}
 		
-		// Find the tower that will have the greatest effect.
+		// If more than one transmitter can be increased by <smallestIncrease>,
+		// find the one that will have the greatest effect.
 		int transmitterId = -1;
 		int numReceivers = -1;
 		
@@ -289,7 +395,7 @@ public class RadioTowerCalculator {
 		}
 		
 		// Apply the increase
-		transmittingTowers.get(transmitterId - 1).power += smallestIncrease;
+		transmittingTowers.get(transmitterId - 1).currentPower += smallestIncrease;
 		
 		// Remove receivers that are now in range
 		receivingTowers.removeAll(increases.get(transmitterId));
